@@ -1,13 +1,12 @@
 package main
 
 import (
-	"rcunov/net-transfer/utils"
 	"testing"
 )
 
-func TestLoadCert(t *testing.T) {
-	_, err := utils.LoadCert(certFile, keyFile)
+func TestGenerateCert(t *testing.T) {
+	_, err := GenerateCert()
 	if err != nil {
-		t.Errorf("could not load cert/key at %v and %v. error: %v", certFile, keyFile, err)
+		t.Errorf("could not generate the certificate. error: %v", err)
 	}
 }
