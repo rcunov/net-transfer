@@ -10,13 +10,13 @@ import (
 // Declare key pair locations globally so main() and tests use the same paths
 var (
 	certFile = "client.pem"
-	keyFile = "client.key"
+	keyFile  = "client.key"
 )
 
 // Server connection info
 var (
 	hostname = "localhost"
-	port = "6600"
+	port     = "6600"
 )
 
 func main() {
