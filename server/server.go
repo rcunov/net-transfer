@@ -47,25 +47,35 @@ const (
 
 const port = "6600"
 
-func main() {
+// StartServer starts listening on the assigned port using TLS with the provided certificate and private key.
+func StartServer(port string, certFile string, keyFile string) (listener net.Listener, err error) {
 	cert, err := utils.LoadCert(certFile, keyFile)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	config := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
 	config.Rand = rand.Reader // This is default behavior but want to make sure this stays the same
 
-	listen, err := tls.Listen("tcp", ":"+port, &config)
+	listener, err = tls.Listen("tcp", ":"+port, &config)
+	if err != nil {
+		return nil, err
+	}
+
+	return listener, nil
+}
+
+func main() {
+	server, err := StartServer(port, certFile, keyFile)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer listen.Close()
+	defer server.Close()
 
 	log.Println("Server listening on port", port)
 
 	for {
-		conn, err := listen.Accept()
+		conn, err := server.Accept()
 		if err != nil {
 			log.Println(err)
 			continue

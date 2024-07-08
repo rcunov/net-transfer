@@ -11,3 +11,10 @@ func TestLoadCert(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 }
+
+func TestStartServer(t *testing.T) {
+	_, err := StartServer(port, certFile, keyFile)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+}
