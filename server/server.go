@@ -9,6 +9,31 @@ import (
 	"rcunov/net-transfer/utils"
 )
 
+// Declare globally so main() and tests always use the same values
+const (
+	certFile = "server.pem"
+	keyFile  = "server.key"
+	port = "6600"
+)
+
+// StartServer starts listening on the assigned port using TLS with the provided certificate and private key.
+func StartServer(port string, certFile string, keyFile string) (listener net.Listener, err error) {
+	cert, err := utils.LoadCert(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	config := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
+	config.Rand = rand.Reader // This is default behavior but want to make sure this stays the same
+
+	listener, err = tls.Listen("tcp", ":"+port, &config)
+	if err != nil {
+		return nil, err
+	}
+
+	return listener, nil
+}
+
 // HandleConnection sends a simple greeting to the provided connection.
 func HandleConnection(conn net.Conn) {
 	defer conn.Close()
@@ -37,32 +62,6 @@ func HandleConnection(conn net.Conn) {
 	log.Print("Responding with: ", serverMessage)
 	writer.WriteString(serverMessage)
 	writer.Flush()
-}
-
-// Declare key pair locations globally so main() and tests use the same paths
-const (
-	certFile = "server.pem"
-	keyFile  = "server.key"
-)
-
-const port = "6600"
-
-// StartServer starts listening on the assigned port using TLS with the provided certificate and private key.
-func StartServer(port string, certFile string, keyFile string) (listener net.Listener, err error) {
-	cert, err := utils.LoadCert(certFile, keyFile)
-	if err != nil {
-		return nil, err
-	}
-
-	config := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
-	config.Rand = rand.Reader // This is default behavior but want to make sure this stays the same
-
-	listener, err = tls.Listen("tcp", ":"+port, &config)
-	if err != nil {
-		return nil, err
-	}
-
-	return listener, nil
 }
 
 func main() {
