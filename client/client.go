@@ -13,18 +13,20 @@ var (
 	keyFile = "client.key"
 )
 
+// Server connection info
+var (
+	hostname = "localhost"
+	port = "6600"
+)
+
 func main() {
 	cert, err := utils.LoadCert(certFile, keyFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// server connection info
-	hostname := "localhost" // TODO: Change me
-	port := "6600"
-	config := tls.Config{Certificates: []tls.Certificate{cert}, InsecureSkipVerify: true}
-
 	log.Printf("Connecting to server at %s\n", hostname)
+	config := tls.Config{Certificates: []tls.Certificate{cert}, InsecureSkipVerify: true}
 	conn, err := tls.Dial("tcp", hostname+":"+port, &config)
 	if err != nil {
 		log.Fatal(err)
