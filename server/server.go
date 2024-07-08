@@ -16,8 +16,14 @@ func HandleConnection(c net.Conn) {
 	log.Printf("Greetings sent to %v. Connection closed", c.RemoteAddr())
 }
 
+// Declare key pair locations globally so main() and tests use the same paths
+var (
+	certFile = "server.pem"
+	keyFile = "server.key"
+)
+
 func main() {
-	cert, err := utils.LoadCert("server.pem", "server.key")
+	cert, err := utils.LoadCert(certFile, keyFile)
 	if err != nil {
 		log.Fatal(err)
 	}

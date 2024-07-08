@@ -6,13 +6,8 @@ import (
 )
 
 func TestLoadCert(t *testing.T) {
-	var (
-		certFile = "server.pem"
-		keyFile = "server.key"
-	)
-
 	_, err := utils.LoadCert(certFile, keyFile)
 	if err != nil {
-		t.Errorf("could not load cert/key at %v and %v. error: %v", certFile, keyFile, err)
+		t.Errorf(err.Error())
 	}
 }

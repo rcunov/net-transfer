@@ -7,8 +7,14 @@ import (
 	"rcunov/net-transfer/utils"
 )
 
+// Declare key pair locations globally so main() and tests use the same paths
+var (
+	certFile = "client.pem"
+	keyFile = "client.key"
+)
+
 func main() {
-	cert, err := utils.LoadCert("client.pem", "client.key")
+	cert, err := utils.LoadCert(certFile, keyFile)
 	if err != nil {
 		log.Fatal(err)
 	}
