@@ -29,7 +29,7 @@ func main() {
 	}
 	
  	config := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
- 	config.Rand = rand.Reader // this is default behavior, but want to make sure this stays the same
+ 	config.Rand = rand.Reader // This is default behavior but want to make sure this stays the same
 
 	port := "6600"
  	ln, err := tls.Listen("tcp", ":"+port, &config)
