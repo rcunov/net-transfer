@@ -1,20 +1,20 @@
 package main
 
 import (
+	"bufio"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"io"
 	"log"
 	"math/big"
 	"time"
 )
 
 // Server connection info
-var (
+const (
 	hostname = "localhost"
 	port     = "6600"
 )
@@ -36,7 +36,7 @@ func GenerateCert() (cert tls.Certificate, err error) {
 	// Generate random serial number for cert
 	serial, err := rand.Int(rand.Reader, big.NewInt(123456))
 	if err != nil {
-		log.Fatal("could not generate random serial for cert. error:", err)
+		return tls.Certificate{}, err
 	}
 
 	// Generate the cert
@@ -70,25 +70,44 @@ func GenerateCert() (cert tls.Certificate, err error) {
 	return cert, err
 }
 
+// ConnectToServer initiates a TLS connection to the server at the provided hostname and port.
+func ConnectToServer(tlsCert tls.Certificate, hostname string, port string) (conn *tls.Conn, err error) {
+	log.Printf("Connecting to server at %s\n", hostname)
+	config := tls.Config{Certificates: []tls.Certificate{tlsCert}, InsecureSkipVerify: true}
+	conn, err = tls.Dial("tcp", hostname+":"+port, &config)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("Established connection to server")
+
+	return conn, err
+}
+
 func main() {
 	tlsCert, err := GenerateCert()
 	if err != nil {
 		log.Fatal("cannot generate the certificate.", err.Error())
 	}
 
-	log.Printf("Connecting to server at %s\n", hostname)
-	config := tls.Config{Certificates: []tls.Certificate{tlsCert}, InsecureSkipVerify: true}
-	conn, err := tls.Dial("tcp", hostname+":"+port, &config)
+	conn, err := ConnectToServer(tlsCert, hostname, port)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("cannot connect to server. ", err)
 	}
-	defer conn.Close()
-	log.Println("Established connection to server")
 
-	message, err := io.ReadAll(conn)
+	reader := bufio.NewReader(conn)
+	writer := bufio.NewWriter(conn)
+
+	// Send behavior selection
+	msg := "upload" + "\n"
+	log.Print("Sending message to server: ", msg)
+	writer.WriteString(msg)
+	writer.Flush()
+
+	// Read response from server
+	serverMessage, err := reader.ReadString('\n')
 	if err != nil {
-		log.Println("error reading content from server:", err.Error())
+		log.Println("Server disconnected.")
 		return
 	}
-	log.Printf("Message received: %s\n", message)
+	log.Print("Server responded: ", serverMessage)
 }

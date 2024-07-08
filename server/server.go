@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/rand"
 	"crypto/tls"
 	"log"
@@ -9,15 +10,37 @@ import (
 )
 
 // HandleConnection sends a simple greeting to the provided connection.
-func HandleConnection(c net.Conn) {
-	log.Printf("Client connected over TLS from %v", c.RemoteAddr())
-	c.Write([]byte("hello :)"))
-	c.Close()
-	log.Printf("Greetings sent to %v. Connection closed", c.RemoteAddr())
+func HandleConnection(conn net.Conn) {
+	defer conn.Close()
+	log.Printf("Client connected over TLS from %v", conn.RemoteAddr())
+
+	reader := bufio.NewReader(conn)
+	writer := bufio.NewWriter(conn)
+	serverMessage := ""
+
+	// Read message from client
+	clientMessage, err := reader.ReadString('\n')
+	if err != nil {
+		log.Println("Client disconnected.")
+		return
+	}
+
+	// Send response to client
+	if clientMessage == "upload\n" {
+		log.Print("Client wants to upload something")
+		serverMessage = "okay"
+	} else {
+		log.Print("invalid request. client said: ", clientMessage)
+		serverMessage = "bad"
+	}
+	serverMessage = serverMessage + "\n"
+	log.Print("Responding with: ", serverMessage)
+	writer.WriteString(serverMessage)
+	writer.Flush()
 }
 
 // Declare key pair locations globally so main() and tests use the same paths
-var (
+const (
 	certFile = "server.pem"
 	keyFile  = "server.key"
 )
@@ -32,15 +55,16 @@ func main() {
 	config.Rand = rand.Reader // This is default behavior but want to make sure this stays the same
 
 	port := "6600"
-	ln, err := tls.Listen("tcp", ":"+port, &config)
+	listen, err := tls.Listen("tcp", ":"+port, &config)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer listen.Close()
 
 	log.Println("Server listening on port", port)
 
 	for {
-		conn, err := ln.Accept()
+		conn, err := listen.Accept()
 		if err != nil {
 			log.Println(err)
 			continue
