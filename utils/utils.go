@@ -1,11 +1,16 @@
 package utils
 
-import "fmt"
+import (
+	"crypto/tls"
+)
 
-func ClientTest() {
-	fmt.Println("hello from the client app!")
-}
+// LoadCert uses tls.LoadX509KeyPair() to parse a public/private key pair from a pair of files. If an error is found, LoadCert will return an empty certificate and the error.
+func LoadCert(certFile string, keyFile string) (cert tls.Certificate, err error) {
+	cert, err = tls.LoadX509KeyPair(certFile, keyFile)
 
-func ServerTest() {
-	fmt.Println("hello from the server app!")
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	return cert, nil
 }

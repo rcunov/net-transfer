@@ -1,11 +1,18 @@
 package main
 
-import "testing"
+import (
+	"rcunov/net-transfer/utils"
+	"testing"
+)
 
-func TestExampleFunc(t *testing.T) {
-	result := ExampleFunc()
-	
-	if result != "one" {
-		t.Errorf("test function failed, got: %s, want %s", result, "one")
+func TestLoadCert(t *testing.T) {
+	var (
+		certFile = "client.pem"
+		keyFile = "client.key"
+	)
+
+	_, err := utils.LoadCert(certFile, keyFile)
+	if err != nil {
+		t.Errorf("could not load cert/key at %v and %v. error: %v", certFile, keyFile, err)
 	}
 }
