@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"crypto/rand"
 	"crypto/tls"
 	"log"
@@ -39,12 +38,11 @@ func HandleConnection(conn net.Conn) {
 	defer conn.Close()
 	log.Printf("Client connected over TLS from %v", conn.RemoteAddr())
 
-	reader := bufio.NewReader(conn)
-	writer := bufio.NewWriter(conn)
+	rw := utils.CreateReadWriter(conn)
 	serverMessage := ""
 
 	// Read message from client
-	clientMessage, err := reader.ReadString('\n')
+	clientMessage, err := rw.ReadString('\n')
 	if err != nil {
 		log.Println("Client disconnected.")
 		return
@@ -60,8 +58,8 @@ func HandleConnection(conn net.Conn) {
 	}
 	serverMessage = serverMessage + "\n"
 	log.Print("Responding with: ", serverMessage)
-	writer.WriteString(serverMessage)
-	writer.Flush()
+	rw.WriteString(serverMessage)
+	rw.Flush()
 }
 
 func main() {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -10,6 +9,7 @@ import (
 	"encoding/pem"
 	"log"
 	"math/big"
+	"rcunov/net-transfer/utils"
 	"time"
 )
 
@@ -83,14 +83,6 @@ func ConnectToServer(tlsCert tls.Certificate, hostname string, port string) (con
 	return conn, err
 }
 
-// CreateReadWriter allows us to communicate with the server using a bufio reader and writer.
-func CreateReadWriter(conn *tls.Conn) (readwriter *bufio.ReadWriter) {
-	reader := bufio.NewReader(conn)
-	writer := bufio.NewWriter(conn)
-	readwriter = bufio.NewReadWriter(reader, writer)
-	return readwriter
-}
-
 func main() {
 	tlsCert, err := GenerateCert()
 	if err != nil {
@@ -101,17 +93,18 @@ func main() {
 	if err != nil {
 		log.Fatal("cannot connect to server. ", err)
 	}
+	defer conn.Close()
 
-	readwriter := CreateReadWriter(conn)
+	rw := utils.CreateReadWriter(conn)
 
 	// Send behavior selection
 	msg := "upload" + "\n"
 	log.Print("Sending message to server: ", msg)
-	readwriter.WriteString(msg)
-	readwriter.Flush()
+	rw.WriteString(msg)
+	rw.Flush()
 
 	// Read response from server
-	serverMessage, err := readwriter.ReadString('\n')
+	serverMessage, err := rw.ReadString('\n')
 	if err != nil {
 		log.Println("Server disconnected.")
 		return
