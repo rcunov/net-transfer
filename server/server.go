@@ -12,7 +12,7 @@ import (
 const (
 	certFile = "server.pem"
 	keyFile  = "server.key"
-	port = "6600"
+	port     = "6600"
 )
 
 // StartServer starts listening on the assigned port using TLS with the provided certificate and private key.
