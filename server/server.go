@@ -45,6 +45,8 @@ const (
 	keyFile  = "server.key"
 )
 
+const port = "6600"
+
 func main() {
 	cert, err := utils.LoadCert(certFile, keyFile)
 	if err != nil {
@@ -54,7 +56,6 @@ func main() {
 	config := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
 	config.Rand = rand.Reader // This is default behavior but want to make sure this stays the same
 
-	port := "6600"
 	listen, err := tls.Listen("tcp", ":"+port, &config)
 	if err != nil {
 		log.Fatal(err)
