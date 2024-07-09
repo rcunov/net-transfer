@@ -36,29 +36,29 @@ func StartServer(port string, certFile string, keyFile string) (listener net.Lis
 // HandleConnection sends a simple greeting to the provided connection.
 func HandleConnection(conn net.Conn) {
 	defer conn.Close()
-	log.Printf("Client connected over TLS from %v", conn.RemoteAddr())
+	log.Printf("client connected over TLS from %v", conn.RemoteAddr())
 
 	rw := utils.CreateReadWriter(conn)
-	serverMessage := ""
 
 	// Read message from client
 	clientMessage, err := rw.ReadString('\n')
 	if err != nil {
-		log.Println("Client disconnected.")
+		log.Println("client disconnected")
 		return
 	}
 
 	// Send response to client
+	serverResponse := ""
 	if clientMessage == "upload\n" {
-		log.Print("Client wants to upload something")
-		serverMessage = "okay"
+		log.Print("client wants to upload something")
+		serverResponse = "okay"
 	} else {
 		log.Print("invalid request. client said: ", clientMessage)
-		serverMessage = "bad"
+		serverResponse = "bad"
 	}
-	serverMessage = serverMessage + "\n"
-	log.Print("Responding with: ", serverMessage)
-	rw.WriteString(serverMessage)
+	serverResponse = serverResponse + "\n"
+	log.Print("responding with: ", serverResponse)
+	rw.WriteString(serverResponse)
 	rw.Flush()
 }
 
@@ -69,7 +69,7 @@ func main() {
 	}
 	defer server.Close()
 
-	log.Println("Server listening on port", port)
+	log.Println("server listening on port", port)
 
 	for {
 		conn, err := server.Accept()

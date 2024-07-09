@@ -72,13 +72,13 @@ func GenerateCert() (cert tls.Certificate, err error) {
 
 // ConnectToServer initiates a TLS connection to the server at the provided hostname and port.
 func ConnectToServer(tlsCert tls.Certificate, hostname string, port string) (conn *tls.Conn, err error) {
-	log.Printf("Connecting to server at %s\n", hostname)
+	log.Printf("connecting to server at %s\n", hostname)
 	config := tls.Config{Certificates: []tls.Certificate{tlsCert}, InsecureSkipVerify: true}
 	conn, err = tls.Dial("tcp", hostname+":"+port, &config)
 	if err != nil {
 		return nil, err
 	}
-	log.Println("Established connection to server")
+	log.Println("established connection to server")
 
 	return conn, err
 }
@@ -99,15 +99,15 @@ func main() {
 
 	// Send behavior selection
 	msg := "upload" + "\n"
-	log.Print("Sending message to server: ", msg)
+	log.Print("sending message to server: ", msg)
 	rw.WriteString(msg)
 	rw.Flush()
 
 	// Read response from server
 	serverMessage, err := rw.ReadString('\n')
 	if err != nil {
-		log.Println("Server disconnected.")
+		log.Println("server disconnected")
 		return
 	}
-	log.Print("Server responded: ", serverMessage)
+	log.Print("server responded: ", serverMessage)
 }
