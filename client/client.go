@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"log"
 	"math/big"
+	"net"
 	"rcunov/net-transfer/utils"
 	"time"
 )
@@ -71,7 +72,7 @@ func GenerateCert() (cert tls.Certificate, err error) {
 }
 
 // ConnectToServer initiates a TLS connection to the server at the provided hostname and port.
-func ConnectToServer(tlsCert tls.Certificate, hostname string, port string) (conn *tls.Conn, err error) {
+func ConnectToServer(tlsCert tls.Certificate, hostname string, port string) (conn net.Conn, err error) {
 	log.Print("connecting to server at ", hostname)
 	config := tls.Config{Certificates: []tls.Certificate{tlsCert}, InsecureSkipVerify: true}
 	conn, err = tls.Dial("tcp", hostname+":"+port, &config)
