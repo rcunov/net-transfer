@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"rcunov/net-transfer/utils"
+	"strings"
 )
 
 // Declare globally so main() and tests always use the same values
@@ -48,15 +49,17 @@ func HandleConnection(conn net.Conn) {
 	}
 
 	// Send response to client
-	serverResponse := ""
-	if clientMessage == "upload\n" {
+	var serverResponse string
+	clientMessage = strings.TrimSuffix(clientMessage, "\n")
+
+	if clientMessage == "upload" {
 		log.Print("client wants to upload something")
 		serverResponse = "okay"
 	} else {
 		log.Print("invalid request. client said: ", clientMessage)
 		serverResponse = "bad"
 	}
-	serverResponse = serverResponse + "\n"
+	serverResponse += "\n"
 	log.Print("responding with: ", serverResponse)
 	rw.WriteString(serverResponse)
 	rw.Flush()
@@ -69,7 +72,7 @@ func main() {
 	}
 	defer server.Close()
 
-	log.Println("server listening on port", port)
+	log.Print("server listening on port ", port)
 
 	for {
 		conn, err := server.Accept()
