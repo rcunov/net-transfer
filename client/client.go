@@ -97,7 +97,7 @@ func ReadInput(reader *bufio.Reader, menu string) (input string) {
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		if input == "" {
-			fmt.Print("\nError! Please enter a selection.\n\n")
+			fmt.Print("\n--> Error! Please enter a selection.\n\n")
 			fmt.Print(menu)
 		} else {
 			return input
@@ -120,6 +120,7 @@ func main() {
 	rw := utils.CreateReadWriter(conn) // For reading and writing to server
 	stdin := bufio.NewReader(os.Stdin) // For reading input from user
 
+	fmt.Println()
 	for {
 		menu, err := rw.ReadString('\f') // Form feed is escape sequence
 		if err != nil {
@@ -138,13 +139,13 @@ func main() {
 		message, err := rw.ReadString('\n')
 		if err != nil {
 			if err.Error() == "EOF" {
-				fmt.Println("Server closed the connection.")
+				fmt.Print("--> Server closed the connection.\n\n")
 				break
 			}
 			fmt.Println("Error reading from server:", err.Error())
 			return
 		}
 
-		fmt.Printf("Server response: %s\n", message)
+		fmt.Printf("--> Server response: %s\n", message)
 	}
 }
