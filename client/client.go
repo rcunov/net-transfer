@@ -9,8 +9,9 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"math/big"
 	"net"
 	"os"
@@ -23,6 +24,12 @@ import (
 const (
 	hostname = "localhost"
 	port     = "6600"
+)
+
+var (
+	level    = flag.String("loglevel", "info", "Set the logging level (debug, info, warn, error)")
+	logger   *slog.Logger
+	logLevel slog.Level
 )
 
 // GenerateCert creates a new TLS certificate to encrypt the connection to the server.
@@ -78,13 +85,16 @@ func GenerateCert() (cert tls.Certificate, err error) {
 
 // ConnectToServer initiates a TLS connection to the server at the provided hostname and port.
 func ConnectToServer(tlsCert tls.Certificate, hostname string, port string) (conn net.Conn, err error) {
-	log.Print("connecting to server at ", hostname)
+	logger.Debug("connecting to server at " + hostname)
 	config := tls.Config{Certificates: []tls.Certificate{tlsCert}, InsecureSkipVerify: true}
 	conn, err = tls.Dial("tcp", hostname+":"+port, &config)
 	if err != nil {
 		return nil, err
 	}
-	log.Print("established connection to server")
+
+	localPort := conn.LocalAddr().(*net.TCPAddr).Port
+	logMsg := fmt.Sprintf("connection established. localhost:%v --> %v:%v", localPort, hostname, port)
+	logger.Debug(logMsg)
 
 	return conn, err
 }
@@ -98,6 +108,7 @@ func ReadInput(reader *bufio.Reader, menu string) (input string) {
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 		if input == "" {
+			logger.Debug("user input empty, prompting for valid selection")
 			fmt.Print("\n--> Error! Please enter a selection.\n\n")
 			fmt.Print(menu)
 		} else {
@@ -106,15 +117,44 @@ func ReadInput(reader *bufio.Reader, menu string) (input string) {
 	}
 }
 
+// Set up logging
+func init() {
+	flag.Parse()
+
+	switch *level {
+	case "debug":
+		logLevel = slog.LevelDebug
+	case "info":
+		logLevel = slog.LevelInfo
+	case "warn":
+		logLevel = slog.LevelWarn
+	case "error":
+		logLevel = slog.LevelError
+	default:
+		fmt.Println("Invalid log level specified. Defaulting to info.")
+		logLevel = slog.LevelInfo
+	}
+
+	opts := &slog.HandlerOptions{
+		Level: logLevel,
+	}
+
+	logger = slog.New(slog.NewTextHandler(os.Stderr, opts))
+}
+
 func main() {
 	tlsCert, err := GenerateCert()
 	if err != nil {
-		log.Fatal("cannot generate the certificate. ", err)
+		logMsg := fmt.Sprintf("cannot generate the certificate: %v", err.Error())
+		logger.Error(logMsg)
+		os.Exit(1)
 	}
 
 	conn, err := ConnectToServer(tlsCert, hostname, port)
 	if err != nil {
-		log.Fatal("cannot connect to server. ", err)
+		logMsg := fmt.Sprintf("cannot connect to server: %v", err.Error())
+		logger.Error(logMsg)
+		os.Exit(1)
 	}
 	defer conn.Close()
 
@@ -125,7 +165,8 @@ func main() {
 	for {
 		menu, err := rw.ReadString('\f') // Form feed is escape sequence
 		if err != nil {
-			fmt.Println("error reading menu from server:", err.Error())
+			logMsg := fmt.Sprintf("error reading menu from server: %v", err.Error())
+			logger.Error(logMsg)
 			return
 		}
 		menu = fmt.Sprintf(menu[0:len(menu)-2] + " ") // Remove trailing escape sequence
@@ -148,7 +189,8 @@ func main() {
 				fmt.Print("--> Server has shut down.\n\n")
 				break
 			}
-			fmt.Print("error reading from server: ", err.Error())
+			logMsg := fmt.Sprintf("error reading from server: %v", err.Error())
+			logger.Error(logMsg)
 			break
 		}
 
