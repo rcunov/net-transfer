@@ -137,15 +137,14 @@ func main() {
 
 		message, err := rw.ReadString('\n')
 		if err != nil {
+			if err.Error() == "EOF" {
+				fmt.Println("Server closed the connection.")
+				break
+			}
 			fmt.Println("Error reading from server:", err.Error())
 			return
 		}
 
 		fmt.Printf("Server response: %s\n", message)
-
-		if input == "3" {
-			fmt.Println("Closing connection.")
-			break
-		}
 	}
 }

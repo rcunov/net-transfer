@@ -62,7 +62,7 @@ func HandleConnection(conn net.Conn) {
 		case "2":
 			response = fmt.Sprintf("The current time is: %s\n", time.Now().Format(time.RFC1123))
 		case "3":
-			response = "Goodbye!\n"
+			response = "Goodbye!\f"
 			rw.WriteString(response)
 			rw.Flush()
 			return
