@@ -88,6 +88,23 @@ func ConnectToServer(tlsCert tls.Certificate, hostname string, port string) (con
 	return conn, err
 }
 
+// ReadInput reads and validates input from user. When a user does not enter
+// a selection but presses the enter key, ReadInput will prompt the user for a
+// non-empty selection and re-read them the menu supplied by the server. Once a
+// selection has been entered by the user, it will be sent to the server for validation.
+func ReadInput(reader *bufio.Reader, menu string) (input string) {
+	for {
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			fmt.Print("\nError! Please enter a selection.\n\n")
+			fmt.Print(menu)
+		} else {
+			return input
+		}
+	}
+}
+
 func main() {
 	tlsCert, err := GenerateCert()
 	if err != nil {
@@ -100,8 +117,8 @@ func main() {
 	}
 	defer conn.Close()
 
-	rw := utils.CreateReadWriter(conn)       // For reading and writing to server
-	inputReader := bufio.NewReader(os.Stdin) // For reading input from user
+	rw := utils.CreateReadWriter(conn) // For reading and writing to server
+	stdin := bufio.NewReader(os.Stdin) // For reading input from user
 
 	for {
 		menu, err := rw.ReadString('\f') // Form feed is escape sequence
@@ -112,12 +129,8 @@ func main() {
 		menu = fmt.Sprintf(menu[0:len(menu)-2] + " ") // Remove trailing escape sequence
 		fmt.Print(menu)
 
-		input, _ := inputReader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input == "" {
-			fmt.Println("Please enter a valid selection.")
-			continue
-		}
+		input := ReadInput(stdin, menu)
+		fmt.Println()
 
 		rw.WriteString(input + "\n")
 		rw.Flush()
@@ -128,7 +141,7 @@ func main() {
 			return
 		}
 
-		fmt.Printf("Server response: %s", message)
+		fmt.Printf("Server response: %s\n", message)
 
 		if input == "3" {
 			fmt.Println("Closing connection.")
