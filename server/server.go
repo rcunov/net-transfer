@@ -41,7 +41,7 @@ func HandleConnection(conn net.Conn) {
 	log.Printf("client connected over TLS from %v", conn.RemoteAddr())
 
 	rw := utils.CreateReadWriter(conn)
-	menu := "Menu:\n1. HELLO\n2. TIME\n3. EXIT\nEnter your choice: \f"
+	menu := "--- Menu: ---\n1. HELLO\n2. TIME\n3. EXIT\nEnter your choice: \f"
 
 	for {
 		rw.WriteString(menu)
