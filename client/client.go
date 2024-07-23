@@ -162,8 +162,11 @@ func main() {
 	stdin := bufio.NewReader(os.Stdin) // For reading input from user
 
 	fmt.Println()
+
+	// Main logic loop
 	for {
-		menu, err := rw.ReadString('\f') // Form feed is escape sequence
+		// Read menu selection from server
+		menu, err := rw.ReadString('\f') // Set form feed as escape sequence
 		if err != nil {
 			logMsg := fmt.Sprintf("error reading menu from server: %v", err.Error())
 			logger.Error(logMsg)
@@ -172,24 +175,27 @@ func main() {
 		menu = fmt.Sprintf(menu[0:len(menu)-2] + " ") // Remove trailing escape sequence
 		fmt.Print(menu)
 
+		// Allow user to make selection
 		input := ReadInput(stdin, menu)
 		fmt.Println()
 
+		// Send selection to server
 		rw.WriteString(input + "\n")
 		rw.Flush()
 
+		// Read response from server
 		message, err := rw.ReadString('\n')
 		if err != nil {
-			if err.Error() == "EOF" {
+			if err.Error() == "EOF" { // Graceful connection termination
 				fmt.Print("--> Server closed the connection.\n\n")
 				break
 			}
 			var netErr *net.OpError
-			if errors.As(err, &netErr) {
+			if errors.As(err, &netErr) { // Abrubt connection termination
 				fmt.Print("--> Server has shut down.\n\n")
 				break
 			}
-			logMsg := fmt.Sprintf("error reading from server: %v", err.Error())
+			logMsg := fmt.Sprintf("error reading from server: %v", err.Error()) // Generic error catch
 			logger.Error(logMsg)
 			break
 		}

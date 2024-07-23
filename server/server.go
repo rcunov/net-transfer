@@ -14,13 +14,16 @@ import (
 	"time"
 )
 
-// Declare globally so main() and tests always use the same values
+// Server configuration options
 const (
 	certFile = "server.pem"
 	keyFile  = "server.key"
 	port     = "6600"
 )
 
+const menu = "--- Menu: ---\n1. HELLO\n2. TIME\n3. EXIT\nEnter your choice: \f"
+
+// Logging variables
 var (
 	level    = flag.String("loglevel", "info", "Set the logging level (debug, info, warn, error)")
 	logger   *slog.Logger
@@ -45,17 +48,17 @@ func StartServer(port string, certFile string, keyFile string) (listener net.Lis
 	return listener, nil
 }
 
+// HandleConnection performs the main server logic on an incoming connection.
 func HandleConnection(conn net.Conn) {
 	defer conn.Close()
 	logMsg := fmt.Sprintf("client connected over TLS from %v", conn.RemoteAddr())
 	logger.Info(logMsg)
 
 	rw := utils.CreateReadWriter(conn)
-	menu := "--- Menu: ---\n1. HELLO\n2. TIME\n3. EXIT\nEnter your choice: \f"
 
-	for {
+	for { // Main logic loop
 		rw.WriteString(menu)
-		rw.Flush()
+		rw.Flush() // Have to remember to flush writes - write buffer is 4kb
 		clientInput, err := rw.ReadString('\n')
 		if err != nil {
 			logger.Error("Connection closed")
@@ -63,8 +66,8 @@ func HandleConnection(conn net.Conn) {
 		}
 
 		clientInput = strings.TrimSpace(clientInput)
-
 		var response string
+
 		switch clientInput {
 		case "1":
 			logMsg := fmt.Sprintf("received command from %v: %s", conn.RemoteAddr(), clientInput)
