@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -124,7 +125,7 @@ func main() {
 	for {
 		menu, err := rw.ReadString('\f') // Form feed is escape sequence
 		if err != nil {
-			fmt.Println("Error reading menu from server:", err.Error())
+			fmt.Println("error reading menu from server:", err.Error())
 			return
 		}
 		menu = fmt.Sprintf(menu[0:len(menu)-2] + " ") // Remove trailing escape sequence
@@ -142,8 +143,13 @@ func main() {
 				fmt.Print("--> Server closed the connection.\n\n")
 				break
 			}
-			fmt.Println("Error reading from server:", err.Error())
-			return
+			var netErr *net.OpError
+			if errors.As(err, &netErr) {
+				fmt.Print("--> Server has shut down.\n\n")
+				break
+			}
+			fmt.Print("error reading from server: ", err.Error())
+			break
 		}
 
 		fmt.Printf("--> Server response: %s\n", message)
