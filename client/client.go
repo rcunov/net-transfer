@@ -1,16 +1,20 @@
 package main
 
 import (
+	"bufio"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"log"
 	"math/big"
 	"net"
+	"os"
 	"rcunov/net-transfer/utils"
+	"strings"
 	"time"
 )
 
@@ -96,19 +100,39 @@ func main() {
 	}
 	defer conn.Close()
 
-	rw := utils.CreateReadWriter(conn)
+	rw := utils.CreateReadWriter(conn)       // For reading and writing to server
+	inputReader := bufio.NewReader(os.Stdin) // For reading input from user
 
-	// Send behavior selection
-	msg := "upload"
-	log.Print("sending message to server: ", msg)
-	rw.WriteString(msg + "\n")
-	rw.Flush()
+	for {
+		menu, err := rw.ReadString('\f') // Form feed is escape sequence
+		if err != nil {
+			fmt.Println("Error reading menu from server:", err.Error())
+			return
+		}
+		menu = fmt.Sprintf(menu[0:len(menu)-2] + " ") // Remove trailing escape sequence
+		fmt.Print(menu)
 
-	// Read response from server
-	serverMessage, err := rw.ReadString('\n')
-	if err != nil {
-		log.Print("server disconnected")
-		return
+		input, _ := inputReader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			fmt.Println("Please enter a valid selection.")
+			continue
+		}
+
+		rw.WriteString(input + "\n")
+		rw.Flush()
+
+		message, err := rw.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading from server:", err.Error())
+			return
+		}
+
+		fmt.Printf("Server response: %s", message)
+
+		if input == "3" {
+			fmt.Println("Closing connection.")
+			break
+		}
 	}
-	log.Print("server responded: ", serverMessage)
 }
