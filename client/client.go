@@ -1,205 +1,167 @@
+// client.go
 package main
 
 import (
 	"bufio"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/tls"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"errors"
-	"flag"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
-	"log/slog"
-	"math/big"
+	"io"
 	"net"
 	"os"
-	"rcunov/net-transfer/utils"
-	"strings"
-	"time"
+	"strconv"
 )
-
-// Server connection info
-const (
-	hostname = "localhost"
-	port     = "6600"
-)
-
-var (
-	level    = flag.String("loglevel", "info", "Set the logging level (debug, info, warn, error)")
-	logger   *slog.Logger
-	logLevel slog.Level
-)
-
-// GenerateCert creates a new TLS certificate to encrypt the connection to the server.
-// If an error is returned, the certificate will be empty.
-func GenerateCert() (cert tls.Certificate, err error) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-
-	// Generate a pem block with the private key
-	keyPem := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(key),
-	})
-
-	// Generate random serial number for cert
-	serial, err := rand.Int(rand.Reader, big.NewInt(123456))
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-
-	// Generate the cert
-	template := x509.Certificate{
-		NotBefore: time.Now(),
-		NotAfter:  time.Now().AddDate(5, 0, 0),
-		// Have to generate a different serial number each execution
-		SerialNumber: serial,
-		Subject: pkix.Name{
-			CommonName: "net-transfer client",
-		},
-		BasicConstraintsValid: true,
-	}
-	certBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-
-	// Generate a pem block with the cert
-	certPem := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certBytes,
-	})
-
-	// Parse the cert so we can use it
-	cert, err = tls.X509KeyPair(certPem, keyPem)
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-
-	return cert, err
-}
-
-// ConnectToServer initiates a TLS connection to the server at the provided hostname and port.
-func ConnectToServer(tlsCert tls.Certificate, hostname string, port string) (conn net.Conn, err error) {
-	logger.Debug("connecting to server at " + hostname)
-	config := tls.Config{Certificates: []tls.Certificate{tlsCert}, InsecureSkipVerify: true}
-	conn, err = tls.Dial("tcp", hostname+":"+port, &config)
-	if err != nil {
-		return nil, err
-	}
-
-	localPort := conn.LocalAddr().(*net.TCPAddr).Port
-	logMsg := fmt.Sprintf("connection established. localhost:%v --> %v:%v", localPort, hostname, port)
-	logger.Debug(logMsg)
-
-	return conn, err
-}
-
-// ReadInput reads and validates input from user. When a user does not enter
-// a selection but presses the enter key, ReadInput will prompt the user for a
-// non-empty selection and re-read them the menu supplied by the server. Once a
-// selection has been entered by the user, it will be sent to the server for validation.
-func ReadInput(reader *bufio.Reader, menu string) (input string) {
-	for {
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input == "" {
-			logger.Debug("user input empty, prompting for valid selection")
-			fmt.Print("\n--> Error! Please enter a selection.\n\n")
-			fmt.Print(menu)
-		} else {
-			return input
-		}
-	}
-}
-
-// Set up logging
-func init() {
-	flag.Parse()
-
-	switch *level {
-	case "debug":
-		logLevel = slog.LevelDebug
-	case "info":
-		logLevel = slog.LevelInfo
-	case "warn":
-		logLevel = slog.LevelWarn
-	case "error":
-		logLevel = slog.LevelError
-	default:
-		fmt.Println("Invalid log level specified. Defaulting to info.")
-		logLevel = slog.LevelInfo
-	}
-
-	opts := &slog.HandlerOptions{
-		Level: logLevel,
-	}
-
-	logger = slog.New(slog.NewTextHandler(os.Stderr, opts))
-}
 
 func main() {
-	tlsCert, err := GenerateCert()
+	conn, err := net.Dial("tcp", "localhost:8080")
 	if err != nil {
-		logMsg := fmt.Sprintf("cannot generate the certificate: %v", err.Error())
-		logger.Error(logMsg)
-		os.Exit(1)
-	}
-
-	conn, err := ConnectToServer(tlsCert, hostname, port)
-	if err != nil {
-		logMsg := fmt.Sprintf("cannot connect to server: %v", err.Error())
-		logger.Error(logMsg)
-		os.Exit(1)
+		fmt.Println("Error connecting to server:", err)
+		return
 	}
 	defer conn.Close()
+	fmt.Println("Connected to server")
 
-	rw := utils.CreateReadWriter(conn) // For reading and writing to server
-	stdin := bufio.NewReader(os.Stdin) // For reading input from user
+	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
-	fmt.Println()
-
-	// Main logic loop
-	for {
-		// Read menu selection from server
-		menu, err := rw.ReadString('\f') // Set form feed as escape sequence
-		if err != nil {
-			logMsg := fmt.Sprintf("error reading menu from server: %v", err.Error())
-			logger.Error(logMsg)
-			return
-		}
-		menu = fmt.Sprintf(menu[0:len(menu)-2] + " ") // Remove trailing escape sequence
-		fmt.Print(menu)
-
-		// Allow user to make selection
-		input := ReadInput(stdin, menu)
-		fmt.Println()
-
-		// Send selection to server
-		rw.WriteString(input + "\n")
-		rw.Flush()
-
-		// Read response from server
-		message, err := rw.ReadString('\n')
-		if err != nil {
-			if err.Error() == "EOF" { // Graceful connection termination
-				fmt.Print("--> Server closed the connection.\n\n")
-				break
-			}
-			var netErr *net.OpError
-			if errors.As(err, &netErr) { // Abrubt connection termination
-				fmt.Print("--> Server has shut down.\n\n")
-				break
-			}
-			logMsg := fmt.Sprintf("error reading from server: %v", err.Error()) // Generic error catch
-			logger.Error(logMsg)
-			break
-		}
-
-		fmt.Printf("--> Server response: %s\n", message)
+	numFiles, err := GetNumberOfFiles(rw)
+	if err != nil {
+		fmt.Println("Error getting number of files:", err)
+		return
 	}
+
+	files, err := GetListOfFiles(rw, numFiles)
+	if err != nil {
+		fmt.Println("Error getting list of files:", err)
+		return
+	}
+
+	DisplayFiles(files)
+
+	choice, err := GetUserChoice(len(files))
+	if err != nil {
+		fmt.Println("Error getting user choice:", err)
+		return
+	}
+
+	err = SendChoice(rw, choice)
+	if err != nil {
+		fmt.Println("Error sending choice to server:", err)
+		return
+	}
+
+	fileSize, fileHash, err := GetFileSizeAndHash(rw)
+	if err != nil {
+		fmt.Println("Error getting file size and hash:", err)
+		return
+	}
+
+	err = ReceiveFile(rw, files[choice-1], fileSize, fileHash)
+	if err != nil {
+		fmt.Println("Error receiving file:", err)
+		return
+	}
+
+	fmt.Println("File received and verified successfully")
+}
+
+func GetNumberOfFiles(rw *bufio.ReadWriter) (int, error) {
+	numFilesStr, err := rw.ReadString('\n')
+	if err != nil {
+		return 0, err
+	}
+	numFiles, err := strconv.Atoi(numFilesStr[:len(numFilesStr)-1])
+	if err != nil {
+		return 0, err
+	}
+	return numFiles, nil
+}
+
+func GetListOfFiles(rw *bufio.ReadWriter, numFiles int) ([]string, error) {
+	files := make([]string, 0, numFiles)
+	for i := 0; i < numFiles; i++ {
+		fileName, err := rw.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, fileName[:len(fileName)-1])
+	}
+	return files, nil
+}
+
+func DisplayFiles(files []string) {
+	fmt.Println("Available files:")
+	for i, file := range files {
+		fmt.Printf("%d: %s\n", i+1, file)
+	}
+}
+
+func GetUserChoice(numFiles int) (int, error) {
+	var choice int
+	for {
+		fmt.Print("Enter the number of the file to download: ")
+		_, err := fmt.Scan(&choice)
+		if err != nil || choice < 1 || choice > numFiles {
+			fmt.Println("Invalid choice. Please enter a number between 1 and", numFiles)
+			continue
+		}
+		break
+	}
+	return choice, nil
+}
+
+func SendChoice(rw *bufio.ReadWriter, choice int) error {
+	_, err := rw.WriteString(strconv.Itoa(choice) + "\n")
+	if err != nil {
+		return err
+	}
+	return rw.Flush()
+}
+
+func GetFileSizeAndHash(rw *bufio.ReadWriter) (int64, string, error) {
+	fileSizeStr, err := rw.ReadString('\n')
+	if err != nil {
+		return 0, "", err
+	}
+	fileSize, err := strconv.ParseInt(fileSizeStr[:len(fileSizeStr)-1], 10, 64)
+	if err != nil {
+		return 0, "", err
+	}
+
+	fileHash, err := rw.ReadString('\n')
+	if err != nil {
+		return 0, "", err
+	}
+	fileHash = fileHash[:len(fileHash)-1]
+
+	return fileSize, fileHash, nil
+}
+
+func ReceiveFile(rw *bufio.ReadWriter, fileName string, fileSize int64, expectedHash string) error {
+	file, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	err = file.Truncate(fileSize)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.CopyN(file, rw.Reader, fileSize)
+	if err != nil {
+		return err
+	}
+
+	file.Seek(0, 0)
+	hash := sha256.New()
+	_, err = io.Copy(hash, file)
+	if err != nil {
+		return err
+	}
+	calculatedHash := hex.EncodeToString(hash.Sum(nil))
+	if calculatedHash != expectedHash {
+		return fmt.Errorf("file hash mismatch: expected %s, got %s", expectedHash, calculatedHash)
+	}
+	return nil
 }

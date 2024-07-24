@@ -1,143 +1,166 @@
+// server.go
 package main
 
 import (
-	"crypto/rand"
-	"crypto/tls"
-	"flag"
+	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
-	"log"
-	"log/slog"
+	"io"
 	"net"
 	"os"
-	"rcunov/net-transfer/utils"
-	"strings"
-	"time"
+	"strconv"
 )
-
-// Server configuration options
-const (
-	certFile = "server.pem"
-	keyFile  = "server.key"
-	port     = "6600"
-)
-
-const menu = "--- Menu: ---\n1. HELLO\n2. TIME\n3. EXIT\nEnter your choice: \f"
-
-// Logging variables
-var (
-	level    = flag.String("loglevel", "info", "Set the logging level (debug, info, warn, error)")
-	logger   *slog.Logger
-	logLevel slog.Level
-)
-
-// StartServer starts listening on the assigned port using TLS with the provided certificate and private key.
-func StartServer(port string, certFile string, keyFile string) (listener net.Listener, err error) {
-	cert, err := utils.LoadCert(certFile, keyFile)
-	if err != nil {
-		return nil, err
-	}
-
-	config := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
-	config.Rand = rand.Reader // This is default behavior but want to make sure this stays the same
-
-	listener, err = tls.Listen("tcp", ":"+port, &config)
-	if err != nil {
-		return nil, err
-	}
-
-	return listener, nil
-}
-
-// HandleConnection performs the main server logic on an incoming connection.
-func HandleConnection(conn net.Conn) {
-	defer conn.Close()
-	logMsg := fmt.Sprintf("client connected over TLS from %v", conn.RemoteAddr())
-	logger.Info(logMsg)
-
-	rw := utils.CreateReadWriter(conn)
-
-	for { // Main logic loop
-		rw.WriteString(menu)
-		rw.Flush() // Have to remember to flush writes - write buffer is 4kb
-		clientInput, err := rw.ReadString('\n')
-		if err != nil {
-			logger.Error("Connection closed")
-			return
-		}
-
-		clientInput = strings.TrimSpace(clientInput)
-		var response string
-
-		switch clientInput {
-		case "1":
-			logMsg := fmt.Sprintf("received command from %v: %s", conn.RemoteAddr(), clientInput)
-			logger.Debug(logMsg)
-			response = "Hello, client!\n"
-		case "2":
-			logMsg := fmt.Sprintf("received command from %v: %s", conn.RemoteAddr(), clientInput)
-			logger.Debug(logMsg)
-			response = fmt.Sprintf("The current time is: %s\n", time.Now().Format(time.RFC1123))
-		case "3":
-			response = "Goodbye!\f"
-			rw.WriteString(response)
-			rw.Flush()
-			logMsg := fmt.Sprintf("closing connection to %v", conn.RemoteAddr())
-			logger.Info(logMsg)
-			return
-		default:
-			logMsg := fmt.Sprintf("received invalid command from %v: %s", conn.RemoteAddr(), clientInput)
-			logger.Debug(logMsg)
-			response = "Invalid choice. Please select a valid option using the corresponding number.\n"
-		}
-
-		rw.WriteString(response)
-		rw.Flush()
-	}
-}
-
-// Set up logging
-func init() {
-	flag.Parse()
-
-	switch *level {
-	case "debug":
-		logLevel = slog.LevelDebug
-	case "info":
-		logLevel = slog.LevelInfo
-	case "warn":
-		logLevel = slog.LevelWarn
-	case "error":
-		logLevel = slog.LevelError
-	default:
-		fmt.Println("Invalid log level specified. Defaulting to info.")
-		logLevel = slog.LevelInfo
-	}
-
-	opts := &slog.HandlerOptions{
-		Level: logLevel,
-	}
-
-	logger = slog.New(slog.NewJSONHandler(os.Stderr, opts))
-}
 
 func main() {
-	server, err := StartServer(port, certFile, keyFile)
+	listener, err := net.Listen("tcp", ":8080")
 	if err != nil {
-		logger.Error(err.Error())
-		os.Exit(1)
+		fmt.Println("Error starting server:", err)
+		return
 	}
-	defer server.Close()
-
-	debugMsg := fmt.Sprintf("server listening on port %v", port)
-	logger.Info(debugMsg)
+	defer listener.Close()
+	fmt.Println("Server is listening on port 8080")
 
 	for {
-		conn, err := server.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
-			log.Println(err)
-			logger.Error(err.Error())
-			continue
+			fmt.Println("Error accepting connection:", err)
+			return
 		}
-		go HandleConnection(conn)
+		fmt.Println("Client connected")
+
+		go handleConnection(conn)
 	}
+}
+
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+
+	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+
+	files := []string{"file1.txt", "file2.txt", "file3.txt"}
+
+	err := SendNumberOfFiles(rw, len(files))
+	if err != nil {
+		fmt.Println("Error sending number of files:", err)
+		return
+	}
+
+	err = SendListOfFiles(rw, files)
+	if err != nil {
+		fmt.Println("Error sending list of files:", err)
+		return
+	}
+
+	choice, err := GetClientChoice(rw)
+	if err != nil {
+		fmt.Println("Error reading choice:", err)
+		return
+	}
+
+	if choice < 1 || choice > len(files) {
+		fmt.Println("Invalid choice")
+		return
+	}
+
+	fileName := files[choice-1]
+	fileSize, fileHash, err := GetFileSizeAndHash(fileName)
+	if err != nil {
+		fmt.Println("Error getting file size and hash:", err)
+		return
+	}
+
+	err = SendFileSizeAndHash(rw, fileSize, fileHash)
+	if err != nil {
+		fmt.Println("Error sending file size and hash:", err)
+		return
+	}
+
+	err = SendFile(rw, fileName)
+	if err != nil {
+		fmt.Println("Error sending file:", err)
+		return
+	}
+	fmt.Println("File sent successfully")
+}
+
+func SendNumberOfFiles(rw *bufio.ReadWriter, numFiles int) error {
+	_, err := rw.WriteString(strconv.Itoa(numFiles) + "\n")
+	if err != nil {
+		return err
+	}
+	return rw.Flush()
+}
+
+func SendListOfFiles(rw *bufio.ReadWriter, files []string) error {
+	for _, file := range files {
+		_, err := rw.WriteString(file + "\n")
+		if err != nil {
+			return err
+		}
+	}
+	return rw.Flush()
+}
+
+func GetClientChoice(rw *bufio.ReadWriter) (int, error) {
+	choiceStr, err := rw.ReadString('\n')
+	if err != nil {
+		return 0, err
+	}
+	choice, err := strconv.Atoi(choiceStr[:len(choiceStr)-1])
+	if err != nil {
+		return 0, err
+	}
+	return choice, nil
+}
+
+func GetFileSizeAndHash(fileName string) (int64, string, error) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return 0, "", err
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return 0, "", err
+	}
+	fileSize := fileInfo.Size()
+
+	hash := sha256.New()
+	_, err = io.Copy(hash, file)
+	if err != nil {
+		return 0, "", err
+	}
+	fileHash := hex.EncodeToString(hash.Sum(nil))
+
+	return fileSize, fileHash, nil
+}
+
+func SendFileSizeAndHash(rw *bufio.ReadWriter, fileSize int64, fileHash string) error {
+	_, err := rw.WriteString(strconv.FormatInt(fileSize, 10) + "\n")
+	if err != nil {
+		return err
+	}
+	rw.Flush()
+
+	_, err = rw.WriteString(fileHash + "\n")
+	if err != nil {
+		return err
+	}
+	return rw.Flush()
+}
+
+func SendFile(rw *bufio.ReadWriter, fileName string) error {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = io.Copy(rw.Writer, file)
+	if err != nil {
+		return err
+	}
+	return rw.Flush()
 }
