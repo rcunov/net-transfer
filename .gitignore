@@ -27,3 +27,6 @@ go.work.sum
 # SSL certs for testing
 *.key
 *.pem
+
+# Text files for testing
+*/file*.txt
