@@ -3,11 +3,15 @@ package utils
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/pem"
+	"io"
 	"math/big"
+	"os"
 	"strconv"
 	"time"
 )
@@ -68,4 +72,38 @@ func IsValidPort(port string) bool {
 		return false
 	}
 	return p > 1024 && p <= 65535
+}
+
+// GetCurrentDirectoryFiles returns a list of file names in the current directory.
+func GetCurrentDirectoryFiles() ([]string, error) {
+	files, err := os.ReadDir(".")
+	if err != nil {
+		return nil, err
+	}
+
+	fileNames := make([]string, 0)
+	for _, file := range files {
+		if !file.IsDir() {
+			fileNames = append(fileNames, file.Name())
+		}
+	}
+	return fileNames, nil
+}
+
+// CalculateFileHash calculates the SHA-256 hash of the specified file.
+func CalculateFileHash(fileName string) (hash string, err error) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	fileHash := sha256.New()
+	_, err = io.Copy(fileHash, file)
+	if err != nil {
+		return "", err
+	}
+
+	hash = hex.EncodeToString(fileHash.Sum(nil))
+	return hash, nil
 }
