@@ -8,6 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
+	"strconv"
 	"time"
 )
 
@@ -59,4 +60,12 @@ func GenerateCert() (cert tls.Certificate, err error) {
 	}
 
 	return cert, err
+}
+
+func IsValidPort(port string) bool {
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		return false
+	}
+	return p > 1024 && p <= 65535
 }

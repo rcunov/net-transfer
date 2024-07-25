@@ -21,17 +21,9 @@ var (
 	netErr   *net.OpError // Used to catch connection termination error
 )
 
-func IsValidPort(port string) bool {
-	p, err := strconv.Atoi(port)
-	if err != nil {
-		return false
-	}
-	return p > 1024 && p <= 65535
-}
-
 // StartServer starts listening on the assigned port using TLS with the provided certificate and private key.
 func StartServer(port string) (listener net.Listener, err error) {
-	if !IsValidPort(port) {
+	if !utils.IsValidPort(port) {
 		return nil, fmt.Errorf("invalid port specified: %v. should be 1025-65535", port)
 	}
 
