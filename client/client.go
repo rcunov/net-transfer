@@ -55,6 +55,9 @@ func main() {
 				fmt.Println("Error handling file download:", err)
 				return
 			}
+			fmt.Println()
+			fmt.Println("Goodbye!")
+			os.Exit(0)
 		case 2:
 			DisplayCurrentDirectoryFiles()
 			err = HandleFileUpload(rw)
@@ -67,6 +70,9 @@ func main() {
 				fmt.Println("Error handling file upload:", err)
 				return
 			}
+			fmt.Println()
+			fmt.Println("Goodbye!")
+			os.Exit(0)
 		}
 	}
 }
