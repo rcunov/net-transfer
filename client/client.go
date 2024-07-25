@@ -13,8 +13,8 @@ import (
 
 // Server connection info
 var (
-	portFlag = flag.String("port", "6600", "Set the port to listen on (defaults to 6600)")
-	hostname = flag.String("hostname", "localhost", "Set the hostname to connect to (defaults to localhost)")
+	portFlag = flag.String("port", "6600", "Set the port to listen on")
+	hostname = flag.String("hostname", "localhost", "Set the hostname to connect to")
 )
 
 func main() {

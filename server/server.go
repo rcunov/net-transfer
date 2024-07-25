@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	portFlag = flag.String("port", "6600", "Set the port to listen on (defaults to 6600)")
+	portFlag = flag.String("port", "6600", "Set the port to listen on")
 	netErr   *net.OpError // Used to catch connection termination error
 )
 
