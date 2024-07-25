@@ -66,7 +66,7 @@ func GetClientSelection(rw *bufio.ReadWriter) (int, error) {
 	return selection, nil
 }
 
-func GetFileSizeAndHash(fileName string) (int64, string, error) {
+func GetFileSizeAndHash(fileName string) (fileSize int64, fileHash string, err error) {
 	file, err := os.Open(fileName)
 	if err != nil {
 		return 0, "", err
@@ -77,14 +77,12 @@ func GetFileSizeAndHash(fileName string) (int64, string, error) {
 	if err != nil {
 		return 0, "", err
 	}
-	fileSize := fileInfo.Size()
+	fileSize = fileInfo.Size()
 
-	hash := sha256.New()
-	_, err = io.Copy(hash, file)
+	fileHash, err = utils.CalculateFileHash(fileName)
 	if err != nil {
 		return 0, "", err
 	}
-	fileHash := hex.EncodeToString(hash.Sum(nil))
 
 	return fileSize, fileHash, nil
 }
