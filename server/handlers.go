@@ -44,7 +44,7 @@ func HandleFileDownload(rw *bufio.ReadWriter, remoteAddr string) error {
 	}
 
 	fileName := files[selection-1]
-	fileSize, fileHash, err := GetFileSizeAndHash(fileName)
+	fileSize, fileHash, err := utils.CalculateFileSizeAndHash(fileName)
 	if errors.As(err, &netErr) {
 		return fmt.Errorf("client has disconnected")
 	}

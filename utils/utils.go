@@ -107,3 +107,24 @@ func CalculateFileHash(fileName string) (hash string, err error) {
 	hash = hex.EncodeToString(fileHash.Sum(nil))
 	return hash, nil
 }
+
+func CalculateFileSizeAndHash(fileName string) (fileSize int64, fileHash string, err error) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return 0, "", err
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return 0, "", err
+	}
+	fileSize = fileInfo.Size()
+
+	fileHash, err = CalculateFileHash(fileName)
+	if err != nil {
+		return 0, "", err
+	}
+
+	return fileSize, fileHash, nil
+}

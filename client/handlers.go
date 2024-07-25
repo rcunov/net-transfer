@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"rcunov/net-transfer/utils"
 	"strconv"
 )
 
@@ -29,7 +30,7 @@ func HandleFileDownload(rw *bufio.ReadWriter) error {
 		return err
 	}
 
-	fileSize, fileHash, err := GetFileSizeAndHash(rw)
+	fileSize, fileHash, err := ReceiveFileSizeAndHash(rw)
 	if err != nil {
 		return err
 	}
@@ -51,7 +52,7 @@ func HandleFileUpload(rw *bufio.ReadWriter) error {
 		return err
 	}
 
-	fileSize, fileHash, err := GetFileSizeAndHashForUpload(fileName)
+	fileSize, fileHash, err := utils.CalculateFileSizeAndHash(fileName)
 	if err != nil {
 		return err
 	}

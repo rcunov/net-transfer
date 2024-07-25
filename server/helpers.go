@@ -66,27 +66,6 @@ func GetClientSelection(rw *bufio.ReadWriter) (int, error) {
 	return selection, nil
 }
 
-func GetFileSizeAndHash(fileName string) (fileSize int64, fileHash string, err error) {
-	file, err := os.Open(fileName)
-	if err != nil {
-		return 0, "", err
-	}
-	defer file.Close()
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return 0, "", err
-	}
-	fileSize = fileInfo.Size()
-
-	fileHash, err = utils.CalculateFileHash(fileName)
-	if err != nil {
-		return 0, "", err
-	}
-
-	return fileSize, fileHash, nil
-}
-
 func BytesPrettyPrint(bytes int64) string { // Shamelessly stolen
 	const base = 1000
 	if bytes < base {

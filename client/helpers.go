@@ -114,7 +114,7 @@ func SendSelection(rw *bufio.ReadWriter, selection int) error {
 	return rw.Flush()
 }
 
-func GetFileSizeAndHash(rw *bufio.ReadWriter) (int64, string, error) {
+func ReceiveFileSizeAndHash(rw *bufio.ReadWriter) (int64, string, error) {
 	fileSizeStr, err := rw.ReadString('\n')
 	if err != nil {
 		return 0, "", err
@@ -129,29 +129,6 @@ func GetFileSizeAndHash(rw *bufio.ReadWriter) (int64, string, error) {
 		return 0, "", err
 	}
 	fileHash = fileHash[:len(fileHash)-1]
-
-	return fileSize, fileHash, nil
-}
-
-func GetFileSizeAndHashForUpload(fileName string) (int64, string, error) {
-	file, err := os.Open(fileName)
-	if err != nil {
-		return 0, "", err
-	}
-	defer file.Close()
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return 0, "", err
-	}
-	fileSize := fileInfo.Size()
-
-	hash := sha256.New()
-	_, err = io.Copy(hash, file)
-	if err != nil {
-		return 0, "", err
-	}
-	fileHash := hex.EncodeToString(hash.Sum(nil))
 
 	return fileSize, fileHash, nil
 }
