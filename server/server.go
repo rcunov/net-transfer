@@ -3,34 +3,59 @@ package main
 
 import (
 	"bufio"
+	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"rcunov/net-transfer/utils"
 	"strconv"
 )
 
 var netErr *net.OpError // Used to catch connection termination error
 
+const (
+	port = "6600"
+)
+
+// StartServer starts listening on the assigned port using TLS with the provided certificate and private key.
+func StartServer(port string) (listener net.Listener, err error) {
+	cert, err := utils.GenerateCert()
+	if err != nil {
+		return nil, err
+	}
+
+	config := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
+	config.Rand = rand.Reader // This is default behavior but want to make sure this stays the same
+
+	listener, err = tls.Listen("tcp", ":"+port, &config)
+	if err != nil {
+		return nil, err
+	}
+
+	return listener, nil
+}
+
 func main() {
-	listener, err := net.Listen("tcp", ":8080")
+	listener, err := StartServer(port)
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 		return
 	}
 	defer listener.Close()
-	fmt.Println("Server is listening on port 8080")
+	fmt.Println("Server is listening on port " + port)
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println("Error accepting connection:", err)
+			fmt.Printf("Error accepting connection from %v: %v", conn.RemoteAddr().String(), err)
 			return
 		}
-		fmt.Println("Client connected")
+		fmt.Println("Client connected from %v", conn.RemoteAddr().String())
 
 		go HandleConnection(conn)
 	}
@@ -49,7 +74,7 @@ func HandleConnection(conn net.Conn) {
 			return
 		}
 		if err != nil {
-			fmt.Printf("Error reading client %v selection: %v", remoteAddr, err)
+			fmt.Printf("Error reading client %v selection: %v\n", remoteAddr, err)
 			return
 		}
 		clientSelection = clientSelection[:len(clientSelection)-1]
@@ -58,7 +83,7 @@ func HandleConnection(conn net.Conn) {
 		case "1":
 			err = HandleFileDownload(rw)
 			if err != nil {
-				fmt.Printf("Error handling client %v file download: %v", remoteAddr, err)
+				fmt.Printf("Error handling client %v file download: %v\n", remoteAddr, err)
 				return
 			}
 		case "2":
@@ -72,7 +97,7 @@ func HandleConnection(conn net.Conn) {
 				return
 			}
 		default:
-			fmt.Printf("Invalid client %v selection", remoteAddr)
+			fmt.Printf("Invalid client %v selection\n", remoteAddr)
 			return
 		}
 	}

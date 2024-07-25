@@ -4,23 +4,51 @@ package main
 import (
 	"bufio"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"rcunov/net-transfer/utils"
 	"strconv"
 	"strings"
 )
 
-func main() {
-	conn, err := net.Dial("tcp", "localhost:8080")
+// Server connection info
+const (
+	hostname = "localhost"
+	port     = "6600"
+)
+
+// ConnectToServer initiates a TLS connection to the server at the provided hostname and port.
+func ConnectToServer(tlsCert tls.Certificate, hostname string, port string) (conn net.Conn, err error) {
+	fmt.Printf("Connecting to server at %v\n", hostname)
+	config := tls.Config{Certificates: []tls.Certificate{tlsCert}, InsecureSkipVerify: true}
+	conn, err = tls.Dial("tcp", hostname+":"+port, &config)
 	if err != nil {
-		fmt.Println("Error connecting to server:", err)
-		return
+		return nil, err
+	}
+
+	localPort := conn.LocalAddr().(*net.TCPAddr).Port
+	fmt.Printf("Connection established from localhost:%v --> %v:%v\n", localPort, hostname, port)
+
+	return conn, err
+}
+
+func main() {
+	tlsCert, err := utils.GenerateCert()
+	if err != nil {
+		fmt.Printf("Error: cannot generate the certificate: %v\n", err.Error())
+		os.Exit(1)
+	}
+
+	conn, err := ConnectToServer(tlsCert, hostname, port)
+	if err != nil {
+		fmt.Printf("Error: cannot connect to server: %v\n", err.Error())
+		os.Exit(1)
 	}
 	defer conn.Close()
-	fmt.Println("Connected to server")
 
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
