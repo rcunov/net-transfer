@@ -1,4 +1,3 @@
-// server.go
 package main
 
 import (
@@ -8,6 +7,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -16,14 +16,25 @@ import (
 	"strconv"
 )
 
-var netErr *net.OpError // Used to catch connection termination error
-
-const (
-	port = "6600"
+var (
+	portFlag = flag.String("port", "6600", "Set the port to listen on (defaults to 6600)")
+	netErr   *net.OpError // Used to catch connection termination error
 )
+
+func IsValidPort(port string) bool {
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		return false
+	}
+	return p > 1024 && p <= 65535
+}
 
 // StartServer starts listening on the assigned port using TLS with the provided certificate and private key.
 func StartServer(port string) (listener net.Listener, err error) {
+	if !IsValidPort(port) {
+		return nil, fmt.Errorf("invalid port specified: %v. should be 1025-65535", port)
+	}
+
 	cert, err := utils.GenerateCert()
 	if err != nil {
 		return nil, err
@@ -41,13 +52,14 @@ func StartServer(port string) (listener net.Listener, err error) {
 }
 
 func main() {
-	listener, err := StartServer(port)
+	flag.Parse()
+	listener, err := StartServer(*portFlag)
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 		return
 	}
 	defer listener.Close()
-	fmt.Println("Server is listening on port " + port)
+	fmt.Printf("Server is listening on port %v\n", *portFlag)
 
 	for {
 		conn, err := listener.Accept()
