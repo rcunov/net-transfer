@@ -35,7 +35,7 @@ func HandleFileDownload(rw *bufio.ReadWriter) error {
 		return err
 	}
 
-	err = ReceiveFile(rw, files[selection-1], fileSize, fileHash)
+	err = utils.ReceiveFile(rw, files[selection-1], fileSize, fileHash)
 	if err != nil {
 		return err
 	}

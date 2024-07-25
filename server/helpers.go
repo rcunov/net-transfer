@@ -3,9 +3,7 @@ package main
 import (
 	"bufio"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/tls"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -105,34 +103,4 @@ func SendFile(rw *bufio.ReadWriter, fileName string) error {
 		return err
 	}
 	return rw.Flush()
-}
-
-func ReceiveFile(rw *bufio.ReadWriter, fileName string, fileSize int64, expectedHash string) error {
-	file, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	err = file.Truncate(fileSize)
-	if err != nil {
-		return err
-	}
-
-	_, err = io.CopyN(file, rw.Reader, fileSize)
-	if err != nil {
-		return err
-	}
-
-	file.Seek(0, 0)
-	hash := sha256.New()
-	_, err = io.Copy(hash, file)
-	if err != nil {
-		return err
-	}
-	calculatedHash := hex.EncodeToString(hash.Sum(nil))
-	if calculatedHash != expectedHash {
-		return fmt.Errorf("file hash mismatch: expected %s, got %s", expectedHash, calculatedHash)
-	}
-	return nil
 }

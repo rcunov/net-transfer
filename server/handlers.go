@@ -131,7 +131,7 @@ func HandleFileUpload(rw *bufio.ReadWriter, remoteAddr string) error {
 	}
 	fileHash = fileHash[:len(fileHash)-1]
 
-	err = ReceiveFile(rw, fileName, fileSize, fileHash)
+	err = utils.ReceiveFile(rw, fileName, fileSize, fileHash)
 	if errors.As(err, &netErr) {
 		return fmt.Errorf("client has disconnected")
 	}

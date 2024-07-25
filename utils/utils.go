@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bufio"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -9,6 +10,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/hex"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"math/big"
 	"os"
@@ -127,4 +129,33 @@ func CalculateFileSizeAndHash(fileName string) (fileSize int64, fileHash string,
 	}
 
 	return fileSize, fileHash, nil
+}
+
+func ReceiveFile(rw *bufio.ReadWriter, fileName string, fileSize int64, expectedHash string) error {
+	file, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	err = file.Truncate(fileSize)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.CopyN(file, rw.Reader, fileSize)
+	if err != nil {
+		return err
+	}
+
+	file.Seek(0, 0)
+	calculatedHash, err := CalculateFileHash(file.Name())
+	if err != nil {
+		return err
+	}
+
+	if calculatedHash != expectedHash {
+		return fmt.Errorf("file hash mismatch: expected %s, got %s", expectedHash, calculatedHash)
+	}
+	return nil
 }
