@@ -30,3 +30,4 @@ go.work.sum
 
 # Text files for testing
 */file*.txt
+*test.txt
