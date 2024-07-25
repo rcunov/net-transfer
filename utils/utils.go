@@ -11,8 +11,7 @@ import (
 	"time"
 )
 
-// GenerateCert creates a new TLS certificate to encrypt the connection to the server.
-// If an error is returned, the certificate will be empty.
+// GenerateCert creates a new TLS certificate to encrypt network communications.
 func GenerateCert() (cert tls.Certificate, err error) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
