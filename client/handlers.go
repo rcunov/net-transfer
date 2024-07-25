@@ -88,7 +88,7 @@ func HandleFileUpload(rw *bufio.ReadWriter) error {
 	}
 	rw.Flush()
 
-	err = SendFile(rw, fileName)
+	err = utils.SendFile(rw, fileName)
 	if err != nil {
 		return err
 	}

@@ -159,3 +159,17 @@ func ReceiveFile(rw *bufio.ReadWriter, fileName string, fileSize int64, expected
 	}
 	return nil
 }
+
+func SendFile(rw *bufio.ReadWriter, fileName string) error {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = io.Copy(rw.Writer, file)
+	if err != nil {
+		return err
+	}
+	return rw.Flush()
+}

@@ -60,7 +60,7 @@ func HandleFileDownload(rw *bufio.ReadWriter, remoteAddr string) error {
 		return err
 	}
 
-	err = SendFile(rw, fileName)
+	err = utils.SendFile(rw, fileName)
 	if errors.As(err, &netErr) {
 		return fmt.Errorf("client has disconnected")
 	}

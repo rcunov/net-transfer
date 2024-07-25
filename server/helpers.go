@@ -5,9 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
-	"os"
 	"rcunov/net-transfer/utils"
 	"strconv"
 )
@@ -85,20 +83,6 @@ func SendFileSizeAndHash(rw *bufio.ReadWriter, fileSize int64, fileHash string) 
 	rw.Flush()
 
 	_, err = rw.WriteString(fileHash + "\n")
-	if err != nil {
-		return err
-	}
-	return rw.Flush()
-}
-
-func SendFile(rw *bufio.ReadWriter, fileName string) error {
-	file, err := os.Open(fileName)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = io.Copy(rw.Writer, file)
 	if err != nil {
 		return err
 	}
