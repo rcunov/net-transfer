@@ -1,9 +1,19 @@
 # net-transfer
 Simple client/server file transfer application
 
-## Setup
-### Server
-Generate an SSL cert with `openssl req -new -nodes -x509 -out server.pem -keyout server.key -days 365` within the `server/` folder
+## How to use
+Run the client or server program with the `-h` flag to see what options are available. Example:
 
-## OpenSSL on Windows
-Git for Windows comes with openssl installed - check `C:\Program Files\Git\usr\bin\openssl.exe`. Installing that the regular way looks tedious.
+```
+Usage of C:\Users\user\net-transfer\server\server.exe:
+  -port string
+        Set the port to listen on (default "6600")
+```
+
+```
+Usage of C:\Users\user\net-transfer\client\client.exe:
+  -hostname string
+        Set the hostname to connect to (default "localhost")
+  -port string
+        Set the port to listen on (default "6600")
+```
