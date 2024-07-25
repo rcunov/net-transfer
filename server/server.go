@@ -39,17 +39,17 @@ func main() {
 func HandleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	// remoteAddr := conn.RemoteAddr().String()
+	remoteAddr := conn.RemoteAddr().String()
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
 	for {
 		clientSelection, err := rw.ReadString('\n')
 		if errors.As(err, &netErr) {
-			fmt.Println("client has disconnected")
+			fmt.Printf("Client %v has disconnected\n", remoteAddr)
 			return
 		}
 		if err != nil {
-			fmt.Println("Error reading client selection:", err)
+			fmt.Printf("Error reading client %v selection: %v", remoteAddr, err)
 			return
 		}
 		clientSelection = clientSelection[:len(clientSelection)-1]
@@ -58,21 +58,21 @@ func HandleConnection(conn net.Conn) {
 		case "1":
 			err = HandleFileDownload(rw)
 			if err != nil {
-				fmt.Println("Error handling file download:", err)
+				fmt.Printf("Error handling client %v file download: %v", remoteAddr, err)
 				return
 			}
 		case "2":
 			err = HandleFileUpload(rw)
 			if err == io.EOF {
-				fmt.Println("Client disconnected")
+				fmt.Printf("Client %v has disconnected\n", remoteAddr)
 				return
 			}
 			if err != nil {
-				fmt.Println("Error handling file upload:", err)
+				fmt.Printf("Error handling client %v file upload: %v", remoteAddr, err)
 				return
 			}
 		default:
-			fmt.Println("Invalid client selection")
+			fmt.Printf("Invalid client %v selection", remoteAddr)
 			return
 		}
 	}
@@ -161,7 +161,9 @@ func HandleFileUpload(rw *bufio.ReadWriter) error {
 		return err
 	}
 
-	fmt.Printf("Client wants to upload %s (%d bytes). Accept? (yes/no): ", fileName, fileSize)
+	// TODO: Do something more elegant than read for exact input, maybe like a (y/N) where
+	// anything starting with "y" accepts and anything starting with "n" or empty declines
+	fmt.Printf("Client wants to upload %s (%v). Accept? (yes/no): ", fileName, BytesPrettyPrint(fileSize))
 	var approval string
 	fmt.Scan(&approval)
 
@@ -258,6 +260,19 @@ func GetFileSizeAndHash(fileName string) (int64, string, error) {
 	fileHash := hex.EncodeToString(hash.Sum(nil))
 
 	return fileSize, fileHash, nil
+}
+
+func BytesPrettyPrint(bytes int64) string { // Shamelessly stolen
+	const base = 1000
+	if bytes < base {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(base), 0
+	for n := bytes / base; n >= base; n /= base {
+		div *= base
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "kMGTPE"[exp])
 }
 
 func SendFileSizeAndHash(rw *bufio.ReadWriter, fileSize int64, fileHash string) error {
