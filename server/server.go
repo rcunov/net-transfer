@@ -30,7 +30,7 @@ func main() {
 			fmt.Printf("Error accepting connection from %v: %v", conn.RemoteAddr().String(), err)
 			return
 		}
-		fmt.Println("Client connected from %v", conn.RemoteAddr().String())
+		fmt.Printf("Client connected from %v", conn.RemoteAddr().String())
 
 		go HandleConnection(conn)
 	}
