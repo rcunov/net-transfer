@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func main() {
@@ -23,45 +24,155 @@ func main() {
 
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
+	for {
+		fmt.Println("1: Download a file")
+		fmt.Println("2: Upload a file")
+		fmt.Println("CTRL-C: Quit")
+		fmt.Print("Enter your selection: ")
+
+		selection, err := GetUserSelection(2)
+		if err != nil {
+			fmt.Println("Error getting selection:", err)
+			return
+		}
+
+		_, err = rw.WriteString(strconv.Itoa(selection) + "\n")
+		if err != nil {
+			fmt.Println("Error sending selection:", err)
+			return
+		}
+		rw.Flush()
+
+		switch selection {
+		case 1:
+			err = HandleFileDownload(rw)
+			if err == io.EOF {
+				fmt.Println()
+				fmt.Println("Goodbye!")
+				os.Exit(0)
+			}
+			if err != nil {
+				fmt.Println("Error handling file download:", err)
+				return
+			}
+		case 2:
+			DisplayCurrentDirectoryFiles()
+			err = HandleFileUpload(rw)
+			if err == io.EOF {
+				fmt.Println()
+				fmt.Println("Goodbye!")
+				os.Exit(0)
+			}
+			if err != nil {
+				fmt.Println("Error handling file upload:", err)
+				return
+			}
+		}
+	}
+}
+
+func HandleFileDownload(rw *bufio.ReadWriter) error {
 	numFiles, err := GetNumberOfFiles(rw)
 	if err != nil {
-		fmt.Println("Error getting number of files:", err)
-		return
+		return err
 	}
 
 	files, err := GetListOfFiles(rw, numFiles)
 	if err != nil {
-		fmt.Println("Error getting list of files:", err)
-		return
+		return err
 	}
 
 	DisplayFiles(files)
 
-	choice, err := GetUserChoice(len(files))
+	selection, err := GetUserSelection(len(files))
 	if err != nil {
-		fmt.Println("Error getting user choice:", err)
-		return
+		return err
 	}
 
-	err = SendChoice(rw, choice)
+	err = SendSelection(rw, selection)
 	if err != nil {
-		fmt.Println("Error sending choice to server:", err)
-		return
+		return err
 	}
 
 	fileSize, fileHash, err := GetFileSizeAndHash(rw)
 	if err != nil {
-		fmt.Println("Error getting file size and hash:", err)
-		return
+		return err
 	}
 
-	err = ReceiveFile(rw, files[choice-1], fileSize, fileHash)
+	err = ReceiveFile(rw, files[selection-1], fileSize, fileHash)
 	if err != nil {
-		fmt.Println("Error receiving file:", err)
-		return
+		return err
 	}
 
 	fmt.Println("File received and verified successfully")
+	return nil
+}
+
+func HandleFileUpload(rw *bufio.ReadWriter) error {
+	fmt.Print("Enter the file name to upload: ")
+	var fileName string
+	_, err := fmt.Scan(&fileName)
+	if err != nil {
+		return err
+	}
+
+	fileSize, fileHash, err := GetFileSizeAndHashForUpload(fileName)
+	if err != nil {
+		return err
+	}
+
+	_, err = rw.WriteString(fileName + "\n")
+	if err != nil {
+		return err
+	}
+	rw.Flush()
+
+	_, err = rw.WriteString(strconv.FormatInt(fileSize, 10) + "\n")
+	if err != nil {
+		return err
+	}
+	rw.Flush()
+
+	fmt.Println("Awaiting approval from server...")
+	approval, err := rw.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	approval = approval[:len(approval)-1]
+
+	if approval != "yes" {
+		fmt.Println("File upload rejected by server.")
+		return nil
+	}
+	fmt.Println("File upload approved!")
+
+	_, err = rw.WriteString(fileHash + "\n")
+	if err != nil {
+		return err
+	}
+	rw.Flush()
+
+	err = SendFile(rw, fileName)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("File uploaded successfully")
+	return nil
+}
+
+func DisplayCurrentDirectoryFiles() {
+	fmt.Println("Files in current directory:")
+	files, err := os.ReadDir(".")
+	if err != nil {
+		fmt.Println("Error reading directory:", err)
+		return
+	}
+	for _, file := range files {
+		if !file.IsDir() {
+			fmt.Println(file.Name())
+		}
+	}
 }
 
 func GetNumberOfFiles(rw *bufio.ReadWriter) (int, error) {
@@ -95,22 +206,41 @@ func DisplayFiles(files []string) {
 	}
 }
 
-func GetUserChoice(numFiles int) (int, error) {
-	var choice int
+func GetUserSelection(options int) (int, error) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter the number of the file to download (or press CTRL-C to cancel): ")
 	for {
-		fmt.Print("Enter the number of the file to download: ")
-		_, err := fmt.Scan(&choice)
-		if err != nil || choice < 1 || choice > numFiles {
-			fmt.Println("Invalid choice. Please enter a number between 1 and", numFiles)
+		selectionStr, err := reader.ReadString('\n')
+		if err == io.EOF {
+			fmt.Println()
+			fmt.Println("Goodbye!")
+			os.Exit(0)
+		}
+		if err != nil {
+			fmt.Println("Error reading input. Please try again.")
 			continue
 		}
-		break
+		if selectionStr == "\n" {
+			// I don't know why, but when you open the download menu for the first time, the program
+			// reads in a newline character from stdin. Ignoring newline characters from stdin will fix
+			// this, but causes an issue where spamming the Enter key will push the dialog up the screen
+			// since it only prints once, and if we try to catch newline characters with a re-print of
+			// the selection menu, it will double-print the menu when you first open the program. I've
+			// chosen to stick with ignoring them and hoping a user doesn't spam the Enter key.
+			continue
+		}
+		selectionStr = strings.TrimSpace(selectionStr) // Remove newline character from the end
+		selection, err := strconv.Atoi(selectionStr)
+		if err != nil || selection <= 0 || selection > options {
+			fmt.Printf("Invalid selection.\nPlease enter a number between 1 and %d or CTRL-C to cancel: ", options)
+			continue
+		}
+		return selection, nil
 	}
-	return choice, nil
 }
 
-func SendChoice(rw *bufio.ReadWriter, choice int) error {
-	_, err := rw.WriteString(strconv.Itoa(choice) + "\n")
+func SendSelection(rw *bufio.ReadWriter, selection int) error {
+	_, err := rw.WriteString(strconv.Itoa(selection) + "\n")
 	if err != nil {
 		return err
 	}
@@ -132,6 +262,29 @@ func GetFileSizeAndHash(rw *bufio.ReadWriter) (int64, string, error) {
 		return 0, "", err
 	}
 	fileHash = fileHash[:len(fileHash)-1]
+
+	return fileSize, fileHash, nil
+}
+
+func GetFileSizeAndHashForUpload(fileName string) (int64, string, error) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return 0, "", err
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return 0, "", err
+	}
+	fileSize := fileInfo.Size()
+
+	hash := sha256.New()
+	_, err = io.Copy(hash, file)
+	if err != nil {
+		return 0, "", err
+	}
+	fileHash := hex.EncodeToString(hash.Sum(nil))
 
 	return fileSize, fileHash, nil
 }
@@ -164,4 +317,18 @@ func ReceiveFile(rw *bufio.ReadWriter, fileName string, fileSize int64, expected
 		return fmt.Errorf("file hash mismatch: expected %s, got %s", expectedHash, calculatedHash)
 	}
 	return nil
+}
+
+func SendFile(rw *bufio.ReadWriter, fileName string) error {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = io.Copy(rw.Writer, file)
+	if err != nil {
+		return err
+	}
+	return rw.Flush()
 }
