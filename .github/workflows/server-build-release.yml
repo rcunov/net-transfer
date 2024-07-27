@@ -36,7 +36,7 @@ jobs:
       - name: Build server binaries
         working-directory: ./server
         run: >
-          cd server/ && GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }}
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }}
           go build -o net-transfer-server_${{ matrix.goos }}-${{ matrix.goarch }} .
       - name: Release
         uses: softprops/action-gh-release@v2
